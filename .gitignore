@@ -1,0 +1,29 @@
+# dependencies
+node_modules
+
+# build / runtime
+dist
+build
+out
+.tmp
+temp
+tmp
+
+# env
+.env
+.env.local
+.env.production
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+
+# Prisma (optional but usually safe)
+.prisma
+
+# uploads (if you use local storage)
+uploads

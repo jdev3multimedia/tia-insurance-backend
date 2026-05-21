@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+//
+// 🔐 APP CONFIG
+//
+model AppConfig {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  group     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("appconfig")
+}
+
+//
+// 👤 USER
+//
+model User {
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
+  password     String
+  name         String?
+  role         UserRole   @default(CUSTOMER)
+  isActive     Boolean    @default(true)
+  isVerified   Boolean    @default(false)
+  mobile       String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  otp          Otp[]
+  refreshToken RefreshToken[]
+
+  @@map("user")
+}
+
+//
+// 🔐 REFRESH TOKEN
+//
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refreshtoken")
+}
+
+//
+// 🔢 OTP
+//
+model Otp {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  otpCode   String
+  type      OtpType
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("otp")
+}
+
+//
+// ⚙️ ROLE CONFIG
+//
+model RoleConfig {
+  id                 Int                         @id @default(autoincrement())
+  role               RoleConfigRole              @unique
+  otpEnabled         Boolean                     @default(true)
+  verificationMethod RoleConfigVerificationMethod @default(EMAIL)
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+
+  @@map("roleconfig")
+}
+
+//
+// 📊 OCCUPANCY RATE MASTER
+//
+model OccupancyRateMaster {
+  id                 Int      @id @default(autoincrement())
+  risk_code          String   @db.VarChar(50)
+  occupancy_desc     String   @db.VarChar(150)
+  iib_rate           Decimal  @db.Decimal(6, 3)
+  stfi_rate          Decimal  @db.Decimal(6, 3)
+  terrorism_rate     Decimal  @db.Decimal(6, 3)
+  occupancy_category String   @db.VarChar(50)
+  created_at         DateTime @default(now()) @db.Timestamp(0)
+  updated_at         DateTime @updatedAt @db.Timestamp(0)
+
+  @@map("occupancy_rate_master")
+}
+
+//
+// 📍 LOCATION RATE MASTER
+//
+model LocationRateMaster {
+  id                     Int      @id @default(autoincrement())
+  pincode                String   @db.VarChar(10)
+  district_name          String   @db.VarChar(100)
+  mapped_district_name   String   @db.VarChar(100)
+  zone_code              String   @db.VarChar(20)
+  dwelling_rate          Decimal  @db.Decimal(6, 3)
+  non_industrial_rate    Decimal  @db.Decimal(6, 3)
+  industrial_rate        Decimal  @db.Decimal(6, 3)
+  state_name             String   @db.VarChar(100)
+  created_at             DateTime @default(now()) @db.Timestamp(0)
+  updated_at             DateTime @updatedAt @db.Timestamp(0)
+
+  @@map("location_rate_master")
+}
+
+//
+// 🔢 ENUMS
+//
+enum RoleConfigRole {
+  CUSTOMER
+  AGENT
+  EMPLOYEE
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum RoleConfigVerificationMethod {
+  EMAIL
+  SMS
+  NONE
+}
+
+enum OtpType {
+  EMAIL
+  SMS
+}
+
+enum UserRole {
+  CUSTOMER
+  AGENT
+  EMPLOYEE
+  ADMIN
+  SUPER_ADMIN
+}
+
+
+model Plan {
+  id            Int      @id @default(autoincrement())
+  name          String
+  price         Float
+  duration_days Int
+  features      Json?
+  isActive      Boolean  @default(true)
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id        Int @id @default(autoincrement())
+  userId    Int
+  planId    Int
+
+  status    String
+  startDate DateTime
+  endDate   DateTime
+  autoRenew Boolean @default(true)
+
+  plan      Plan @relation(fields: [planId], references: [id])
+
+  payments  Payment[]
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id             Int @id @default(autoincrement())
+  userId         Int
+  subscriptionId Int
+
+  amount         Float
+  status         String
+  gateway        String?
+  transactionId  String?
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@map("payments")
+}
