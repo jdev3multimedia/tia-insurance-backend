@@ -1,384 +1,548 @@
 import prisma from "../config/prisma.js";
 
-export const calculateFireInsurancePremium =
-  async (data) => {
+export const calculateFireInsurancePremium = async (
+  data
+) => {
+  // ==================================================
+  // HELPER FUNCTIONS
+  // ==================================================
 
-    const round2 = (n = 0) =>
-      Math.round(Number(n) * 100) / 100;
+  const round3 = (n = 0) =>
+    Math.round(Number(n) * 1000) / 1000;
 
-    /**
-     * =========================================================
-     * INPUTS
-     * =========================================================
-     */
+  const round2 = (n = 0) =>
+    Math.round(Number(n) * 100) / 100;
+
+  const toNum = (value) =>
+    parseFloat(String(value || 0).replace(/,/g, "")) ||
+    0;
+
+  console.log(
+    "=================================================="
+  );
+  console.log(
+    "FIRE INSURANCE PREMIUM CALCULATION STARTED"
+  );
+  console.log(
+    "=================================================="
+  );
+
+  try {
+    // ==================================================
+    // INPUT DATA
+    // ==================================================
 
     const {
-      customerDetails,
-      riskCovers,
-      discounts,
-      sumInsured
+      customerDetails = {},
+      riskCovers = {},
+      discounts = {},
+      sumInsured = {}
     } = data;
 
-    /**
-     * =========================================================
-     * CUSTOMER DETAILS
-     * =========================================================
-     */
+    console.log("INPUT DATA RECEIVED");
+
+    console.log("Customer Details:", customerDetails);
+
+    console.log("Risk Covers:", riskCovers);
+
+    console.log("Discounts:", discounts);
+
+    console.log("Sum Insured:", sumInsured);
 
     const {
-      riskCode,
-      occupancy,
-      pinCode
+      riskCode = "",
+      occupancy = "",
+      pinCode = ""
     } = customerDetails;
 
-    /**
-     * =========================================================
-     * RISK COVERS
-     * =========================================================
-     */
-
     const {
-      terrorism,
-      burglary
+      terrorism = false,
+      burglary = false
     } = riskCovers;
 
-    /**
-     * =========================================================
-     * DISCOUNTS
-     * =========================================================
-     */
-
     const {
-      iibDiscountPercent,
-      natcatDiscountPercent
+      iibDiscountPercent = 0,
+      natcatDiscountPercent = 0
     } = discounts;
 
-    /**
-     * =========================================================
-     * SUM INSURED
-     * =========================================================
-     */
-
     const {
-      buildingSI,
-      plantAndMachinerySI,
-      stockSI,
-      furnitureFixturesFittingsSI,
-      otherContentsSI
+      buildingSI = 0,
+      plantAndMachinerySI = 0,
+      stockSI = 0,
+      furnitureFixturesFittingsSI = 0,
+      otherContentsSI = 0
     } = sumInsured;
 
-    /**
-     * =========================================================
-     * TOTAL SUM INSURED
-     * =========================================================
-     */
-
-    const totalSumInsured =
-      Number(buildingSI || 0) +
-      Number(plantAndMachinerySI || 0) +
-      Number(stockSI || 0) +
-      Number(
-        furnitureFixturesFittingsSI || 0
-      ) +
-      Number(otherContentsSI || 0);
+    // ==================================================
+    // VALIDATION
+    // ==================================================
 
     console.log(
-      "[TOTAL SUM INSURED]",
-      totalSumInsured
+      "--------------------------------------------------"
+    );
+    console.log("VALIDATING INPUTS");
+    console.log(
+      "--------------------------------------------------"
     );
 
-    /**
-   * =========================================================
-   * VALIDATIONS
-   * =========================================================
-   */
-
-    if (!riskCode || riskCode.trim() === "") {
+    if (!riskCode.trim()) {
+      console.log("ERROR: Risk code missing");
       throw new Error("Risk code is required");
     }
 
-    if (!pinCode || pinCode.trim() === "") {
+    if (!pinCode.trim()) {
+      console.log("ERROR: Pin code missing");
       throw new Error("Pin code is required");
     }
 
-    /**
-     * =========================================================
-     * FETCH MASTER DATA
-     * =========================================================
-     */
+    console.log("Risk Code:", riskCode);
 
-    const [
-      occupancyData,
-      locationData
-    ] = await Promise.all([
+    console.log("Occupancy:", occupancy);
 
-      prisma.occupancyRateMaster.findFirst({
-        where: {
-          risk_code: riskCode
-        }
-      }),
+    console.log("Pin Code:", pinCode);
 
-      prisma.locationRateMaster.findFirst({
-        where: {
-          pincode: pinCode
-        }
-      })
-    ]);
+    // ==================================================
+    // FETCH MASTER DATA
+    // ==================================================
 
-    if (!occupancyData || !locationData) {
+    console.log(
+      "--------------------------------------------------"
+    );
+    console.log("FETCHING MASTER DATA");
+    console.log(
+      "--------------------------------------------------"
+    );
+
+    const [occupancyData, locationData] =
+      await Promise.all([
+        prisma.occupancyRateMaster.findFirst({
+          where: {
+            risk_code: riskCode
+          }
+        }),
+
+        prisma.locationRateMaster.findFirst({
+          where: {
+            pincode: pinCode
+          }
+        })
+      ]);
+
+    if (!occupancyData) {
+      console.log(
+        "ERROR: Occupancy master data not found"
+      );
 
       throw new Error(
-        "Invalid risk code or pincode"
+        "Invalid risk code. Occupancy data not found"
       );
     }
 
-    /**
-     * =========================================================
-     * MASTER RATES
-     * =========================================================
-     */
-
-    const iibRate =
-      Number(occupancyData.iib_rate || 0);
-
-    const stfiRate =
-      Number(occupancyData.stfi_rate || 0);
-
-    const terrorismRate =
-      Number(
-        occupancyData.terrorism_rate || 0
+    if (!locationData) {
+      console.log(
+        "ERROR: Location master data not found"
       );
 
-    console.log("[RATES]", {
-      iibRate,
-      stfiRate,
-      terrorismRate
-    });
+      throw new Error(
+        "Invalid pincode. Location data not found"
+      );
+    }
 
-    /**
-     * =========================================================
-     * EARTHQUAKE RATE
-     * =========================================================
-     */
+    console.log(
+      "Occupancy Master Data:",
+      occupancyData
+    );
+
+    console.log(
+      "Location Master Data:",
+      locationData
+    );
+
+    // ==================================================
+    // SUM INSURED CALCULATION
+    // ==================================================
+
+    console.log(
+      "--------------------------------------------------"
+    );
+    console.log("CALCULATING SUM INSURED");
+    console.log(
+      "--------------------------------------------------"
+    );
+
+    const buildingSumInsured = toNum(buildingSI);
+
+    const plantAndMachinerySumInsured = toNum(
+      plantAndMachinerySI
+    );
+
+    const stockSumInsured = toNum(stockSI);
+
+    const furnitureFixturesFittingsSumInsured =
+      toNum(furnitureFixturesFittingsSI);
+
+    const otherContentsSumInsured = toNum(
+      otherContentsSI
+    );
+
+    console.log(
+      "Building Sum Insured:",
+      buildingSumInsured
+    );
+
+    console.log(
+      "Plant & Machinery Sum Insured:",
+      plantAndMachinerySumInsured
+    );
+
+    console.log(
+      "Stock Sum Insured:",
+      stockSumInsured
+    );
+
+    console.log(
+      "Furniture Fixtures Fittings Sum Insured:",
+      furnitureFixturesFittingsSumInsured
+    );
+
+    console.log(
+      "Other Contents Sum Insured:",
+      otherContentsSumInsured
+    );
+
+    // Fire Section SI
+
+    const fireSectionSumInsured =
+      buildingSumInsured +
+      plantAndMachinerySumInsured +
+      stockSumInsured +
+      furnitureFixturesFittingsSumInsured +
+      otherContentsSumInsured;
+
+    // Burglary Section SI
+
+    const burglarySectionSumInsured =
+      plantAndMachinerySumInsured +
+      stockSumInsured +
+      furnitureFixturesFittingsSumInsured +
+      otherContentsSumInsured;
+
+    console.log(
+      "Fire Section Sum Insured:",
+      fireSectionSumInsured
+    );
+
+    console.log(
+      "Burglary Section Sum Insured:",
+      burglarySectionSumInsured
+    );
+
+    // ==================================================
+    // FETCH RATES
+    // ==================================================
+
+    console.log(
+      "--------------------------------------------------"
+    );
+    console.log("FETCHING RATES");
+    console.log(
+      "--------------------------------------------------"
+    );
+
+    const iibRate = Number(
+      occupancyData.iib_rate || 0
+    );
+
+    const stfiRate = Number(
+      occupancyData.stfi_rate || 0
+    );
+
+    const terrorismRate = Number(
+      occupancyData.terrorism_rate || 0
+    );
+
+    const bhbRate = Number(
+      occupancyData.bhb_rate || 0.05
+    );
+
+    console.log("IIB Rate:", iibRate);
+
+    console.log("STFI Rate:", stfiRate);
+
+    console.log(
+      "Terrorism Rate:",
+      terrorismRate
+    );
+
+    console.log("BHB Rate:", bhbRate);
+
+    // ==================================================
+    // EARTHQUAKE RATE CALCULATION
+    // ==================================================
+
+    console.log(
+      "--------------------------------------------------"
+    );
+    console.log(
+      "CALCULATING EARTHQUAKE RATE"
+    );
+    console.log(
+      "--------------------------------------------------"
+    );
 
     let earthquakeRate = 0;
 
     const occupancyCategory =
       occupancyData.occupancy_category
-        ?.trim()
-        ?.toLowerCase();
+        ?.toLowerCase()
+        ?.replace(/\s+/g, "")
+        ?.replace(/-/g, "");
 
     console.log(
-      "[OCCUPANCY CATEGORY]",
+      "Normalized Occupancy Category:",
       occupancyCategory
     );
 
     if (occupancyCategory === "dwelling") {
-
-      earthquakeRate =
-        Number(
-          locationData.dwelling_rate || 0
-        );
-
+      earthquakeRate = Number(
+        locationData.dwelling_rate || 0
+      );
     } else if (
-      occupancyCategory ===
-      "non - industrial"
+      occupancyCategory === "nonindustrial"
     ) {
-
-      earthquakeRate =
-        Number(
-          locationData.non_industrial_rate || 0
-        );
-
+      earthquakeRate = Number(
+        locationData.non_industrial_rate || 0
+      );
     } else if (
       occupancyCategory === "industrial"
     ) {
-
-      earthquakeRate =
-        Number(
-          locationData.industrial_rate || 0
-        );
+      earthquakeRate = Number(
+        locationData.industrial_rate || 0
+      );
     }
 
     console.log(
-      "[EARTHQUAKE RATE]",
+      "Earthquake Rate:",
       earthquakeRate
     );
 
-    /**
-     * =========================================================
-     * IIB RATE AFTER DISCOUNT
-     * =========================================================
-     */
-
-    const netIIBRate =
-      round2(
-        iibRate -
-        (
-          iibRate *
-          iibDiscountPercent / 100
-        )
-      );
+    // ==================================================
+    // RATE CALCULATIONS
+    // ==================================================
 
     console.log(
-      "[NET IIB RATE]",
+      "--------------------------------------------------"
+    );
+    console.log("CALCULATING RATES");
+    console.log(
+      "--------------------------------------------------"
+    );
+
+    console.log(
+      "IIB Discount Percentage:",
+      iibDiscountPercent
+    );
+
+    const netIIBRate = round3(
+      iibRate -
+        (iibRate * iibDiscountPercent) / 100
+    );
+
+    console.log(
+      "Net IIB Rate:",
       netIIBRate
     );
 
-    /**
-     * =========================================================
-     * NAT CAT RATE
-     * EQ + STFI
-     * =========================================================
-     */
-
-    const netCatRate =
-      round2(
-        (
-          earthquakeRate +
-          stfiRate
-        ) -
-        (
-          (
-            earthquakeRate +
-            stfiRate
-          ) *
-          natcatDiscountPercent / 100
-        )
-      );
+    const natCatBaseRate = round3(
+      earthquakeRate + stfiRate
+    );
 
     console.log(
-      "[NET CAT RATE]",
+      "Natural Catastrophe Base Rate:",
+      natCatBaseRate
+    );
+
+    console.log(
+      "Nat Cat Discount Percentage:",
+      natcatDiscountPercent
+    );
+
+    const natCatDiscountAmount = round3(
+      (natCatBaseRate *
+        natcatDiscountPercent) /
+        100
+    );
+
+    console.log(
+      "Nat Cat Discount Amount:",
+      natCatDiscountAmount
+    );
+
+    const netCatRate = round3(
+      natCatBaseRate - natCatDiscountAmount
+    );
+
+    console.log(
+      "Net Catastrophe Rate:",
       netCatRate
     );
 
-    /**
-     * =========================================================
-     * FINAL FIRE RATE
-     * =========================================================
-     */
-
-    const finalFireRate =
-      round2(
-        netIIBRate +
-        netCatRate
-      );
+    const finalFireRate = round3(
+      netIIBRate + netCatRate
+    );
 
     console.log(
-      "[FINAL FIRE RATE]",
+      "Final Fire Rate:",
       finalFireRate
     );
 
-    /**
-     * =========================================================
-     * TERRORISM RATE
-     * =========================================================
-     */
+    const totalFireRate = round3(
+      finalFireRate + terrorismRate
+    );
 
-    const terrorismAppliedRate =
+    console.log(
+      "Total Fire Rate:",
+      totalFireRate
+    );
+
+    // ==================================================
+    // FIRE PREMIUM CALCULATION
+    // ==================================================
+
+    console.log(
+      "--------------------------------------------------"
+    );
+    console.log(
+      "CALCULATING FIRE PREMIUM"
+    );
+    console.log(
+      "--------------------------------------------------"
+    );
+
+    const firePremium = round2(
+      (fireSectionSumInsured *
+        finalFireRate) /
+        1000
+    );
+
+    console.log(
+      "Fire Premium:",
+      firePremium
+    );
+
+    let terrorismPremium = 0;
+
+    if (terrorism) {
+      terrorismPremium = round2(
+        (fireSectionSumInsured *
+          terrorismRate) /
+          1000
+      );
+    }
+
+    console.log(
+      "Terrorism Cover Selected:",
       terrorism
-        ? terrorismRate
-        : 0;
-
-    console.log(
-      "[TERRORISM RATE]",
-      terrorismAppliedRate
     );
 
-    /**
-     * =========================================================
-     * BURGLARY RATE
-     * =========================================================
-     */
+    console.log(
+      "Terrorism Premium:",
+      terrorismPremium
+    );
 
-    const burglaryRate =
+    const fireSectionPremium = round2(
+      firePremium + terrorismPremium
+    );
+
+    console.log(
+      "Fire Section Premium:",
+      fireSectionPremium
+    );
+
+    // ==================================================
+    // BURGLARY PREMIUM CALCULATION
+    // ==================================================
+
+    console.log(
+      "--------------------------------------------------"
+    );
+    console.log(
+      "CALCULATING BURGLARY PREMIUM"
+    );
+    console.log(
+      "--------------------------------------------------"
+    );
+
+    let burglaryPremium = 0;
+
+    if (burglary) {
+      burglaryPremium = round2(
+        (burglarySectionSumInsured * bhbRate) /
+          1000
+      );
+    }
+
+    console.log(
+      "Burglary Cover Selected:",
       burglary
-        ? 0.005
-        : 0;
-
-    console.log(
-      "[BURGLARY RATE]",
-      burglaryRate
     );
 
-    /**
-     * =========================================================
-     * TOTAL RATE
-     * =========================================================
-     */
-
-    const totalRate =
-      round2(
-        finalFireRate +
-        terrorismAppliedRate +
-        burglaryRate
-      );
-
     console.log(
-      "[TOTAL RATE]",
-      totalRate
+      "Burglary Premium:",
+      burglaryPremium
     );
 
-    /**
-     * =========================================================
-     * NET PREMIUM
-     * =========================================================
-     */
-
-    const netPremium =
-      round2(
-        (
-          totalSumInsured *
-          totalRate
-        ) / 1000
-      );
+    // ==================================================
+    // FINAL PREMIUM CALCULATION
+    // ==================================================
 
     console.log(
-      "[NET PREMIUM]",
+      "--------------------------------------------------"
+    );
+    console.log(
+      "CALCULATING FINAL PREMIUMS"
+    );
+    console.log(
+      "--------------------------------------------------"
+    );
+
+    const netPremium = round2(
+      fireSectionPremium + burglaryPremium
+    );
+
+    console.log(
+      "Net Premium:",
       netPremium
     );
 
-    /**
-     * =========================================================
-     * GST
-     * =========================================================
-     */
+    const gst = round2(netPremium * 0.18);
 
-    const gst =
-      round2(
-        netPremium * 0.18
-      );
+    console.log("GST @18%:", gst);
 
-    console.log("[GST]", gst);
-
-    /**
-     * =========================================================
-     * GROSS PREMIUM
-     * =========================================================
-     */
-
-    const grossPremium =
-      round2(
-        netPremium + gst
-      );
+    const grossPremium = round2(
+      netPremium + gst
+    );
 
     console.log(
-      "[GROSS PREMIUM]",
+      "Gross Premium:",
       grossPremium
     );
 
     console.log(
-      "[END] Calculation complete"
+      "=================================================="
+    );
+    console.log(
+      "FIRE INSURANCE PREMIUM CALCULATION COMPLETED"
+    );
+    console.log(
+      "=================================================="
     );
 
-    /**
-     * =========================================================
-     * RESPONSE
-     * =========================================================
-     */
+    // ==================================================
+    // FINAL RESPONSE
+    // ==================================================
 
     return {
-
       customerDetails: {
         riskCode,
         occupancy,
@@ -386,29 +550,50 @@ export const calculateFireInsurancePremium =
       },
 
       rates: {
-
         iibRate,
+        netIIBRate,
 
         earthquakeRate,
 
         stfiRate,
 
-        terrorismRate,
-
-        burglaryRate,
-
-        netIIBRate,
-
+        natCatBaseRate,
+        natCatDiscountAmount,
         netCatRate,
 
         finalFireRate,
 
-        totalRate
+        terrorismRate,
+
+        totalFireRate,
+
+        bhbRate
+      },
+
+      sumInsured: {
+        buildingSumInsured,
+
+        plantAndMachinerySumInsured,
+
+        stockSumInsured,
+
+        furnitureFixturesFittingsSumInsured,
+
+        otherContentsSumInsured,
+
+        fireSectionSumInsured,
+
+        burglarySectionSumInsured
       },
 
       premium: {
+        firePremium,
 
-        totalSumInsured,
+        terrorismPremium,
+
+        fireSectionPremium,
+
+        burglaryPremium,
 
         netPremium,
 
@@ -417,4 +602,19 @@ export const calculateFireInsurancePremium =
         grossPremium
       }
     };
-  };
+  } catch (error) {
+    console.log(
+      "=================================================="
+    );
+    console.log(
+      "PREMIUM CALCULATION FAILED"
+    );
+    console.log(
+      "=================================================="
+    );
+
+    console.log("Error Message:", error.message);
+
+    throw error;
+  }
+};
