@@ -16,7 +16,7 @@ export const generateTokens = async (user) => {
       role: user.role,
     },
     jwtSecret,
-    { expiresIn: "30m" }
+    { expiresIn: "500m" }
   );
 
   // Refresh Token (long life)

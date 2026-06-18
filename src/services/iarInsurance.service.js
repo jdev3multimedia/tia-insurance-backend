@@ -2,6 +2,15 @@ import prisma from "../config/prisma.js";
 
 /**
  * =========================================================
+ * DECIMAL CONFIG
+ * =========================================================
+ */
+
+const DECIMAL_PLACES =
+  Number(process.env.DECIMAL_PLACES || 2);
+
+/**
+ * =========================================================
  * IAR SECTION RATE MASTER
  * =========================================================
  */
@@ -35,8 +44,10 @@ const SECTION_RATES = {
  * =========================================================
  */
 
-const round2 = (n = 0) =>
-  Number(Number(n).toFixed(2));
+const roundValue = (n = 0) =>
+  Number(
+    Number(n).toFixed(DECIMAL_PLACES)
+  );
 
 /**
  * =========================================================
@@ -50,7 +61,7 @@ const calculatePremium = ({
   basis = 1000
 }) => {
 
-  return round2(
+  return roundValue(
     (
       Number(sumInsured) *
       Number(rate)
@@ -114,10 +125,11 @@ START IAR INSURANCE PREMIUM CALCULATION
 
       const {
         customerDetails,
-        riskCovers,
+        optionalCovers,
         discounts,
         sumInsured,
-        sections
+        sections,
+        addons
       } = data;
 
       /**
@@ -135,18 +147,26 @@ START IAR INSURANCE PREMIUM CALCULATION
 
       /**
        * =========================================================
-       * RISK COVERS
+       * OPTIONAL COVERS
        * =========================================================
        */
 
       const {
-        fireAndAlliedPerils,
-        terrorism,
-        burglary,
-        businessInterruption,
-        machineryBreakdown,
-        mlop
-      } = riskCovers;
+        terrorism = false,
+        mlop = false
+      } = optionalCovers || {};
+
+      /**
+       * =========================================================
+       * DEFAULT MANDATORY COVERS
+       * =========================================================
+       */
+
+      const fireAndAlliedPerils = true;
+
+      const businessInterruption = true;
+
+      const machineryBreakdown = true;
 
       /**
        * =========================================================
@@ -156,8 +176,9 @@ START IAR INSURANCE PREMIUM CALCULATION
 
       const {
         iibDiscountPercent = 0,
-        natcatDiscountPercent = 0
-      } = discounts;
+        eqDiscountPercent = 0,
+        stfiDiscountPercent = 0,
+      } = discounts || {};
 
       /**
        * =========================================================
@@ -166,13 +187,13 @@ START IAR INSURANCE PREMIUM CALCULATION
        */
 
       const totalSI =
-        Number(sumInsured.buildingSI || 0) +
-        Number(sumInsured.plantAndMachinerySI || 0) +
-        Number(sumInsured.stockSI || 0) +
+        Number(sumInsured?.buildingSI || 0) +
+        Number(sumInsured?.plantAndMachinerySI || 0) +
+        Number(sumInsured?.stockSI || 0) +
         Number(
-          sumInsured.furnitureFixturesFittingsSI || 0
+          sumInsured?.furnitureFixturesFittingsSI || 0
         ) +
-        Number(sumInsured.otherContentsSI || 0);
+        Number(sumInsured?.otherContentsSI || 0);
 
       console.log(`
 =========================================================
@@ -187,6 +208,29 @@ ${totalSI}
        * FETCH MASTER RATES
        * =========================================================
        */
+
+         if (
+          pinCode === null ||
+          pinCode === undefined ||
+          pinCode === ""
+        ) {
+
+          throw new Error(
+            "Pincode is required"
+          );
+        }
+
+        if (
+          riskCode === null ||
+          riskCode === undefined ||
+          riskCode === ""
+        ) {
+
+          throw new Error(
+            "Risk code is required"
+          );
+        }
+
 
       const [
         occupancyData,
@@ -299,6 +343,10 @@ EARTHQUAKE RATE    : ${earthquakeRate}
 
       let netCatRate = 0;
 
+      let netEqRate = 0;
+      
+      let netStfiRate = 0;  
+
       let terrorismApplied = 0;
 
       let finalFireRate = 0;
@@ -310,31 +358,63 @@ EARTHQUAKE RATE    : ${earthquakeRate}
          */
 
         netRateIIB =
-          round2(
+          roundValue(
             iibRate -
             (
               iibRate *
-              iibDiscountPercent / 100
+              Number(iibDiscountPercent) / 100
             )
           );
+        
 
         /**
          * NATCAT RATE
          * EQ + STFI
          */
 
-        const natcatBaseRate =
-          earthquakeRate +
-          stfiRate;
+        /**
+ * =========================================================
+ * EQ RATE AFTER DISCOUNT
+ * =========================================================
+ */
 
-        netCatRate =
-          round2(
-            natcatBaseRate -
-            (
-              natcatBaseRate *
-              natcatDiscountPercent / 100
-            )
-          );
+netEqRate =
+  roundValue(
+    earthquakeRate -
+    (
+      earthquakeRate *
+      Number(eqDiscountPercent) /
+      100
+    )
+  );
+
+/**
+ * =========================================================
+ * STFI RATE AFTER DISCOUNT
+ * =========================================================
+ */
+
+netStfiRate =
+  roundValue(
+    stfiRate -
+    (
+      stfiRate *
+      Number(stfiDiscountPercent) /
+      100
+    )
+  );
+
+/**
+ * =========================================================
+ * NET NAT CAT RATE
+ * =========================================================
+ */
+
+netCatRate =
+  roundValue(
+    netEqRate +
+    netStfiRate
+  );
 
         /**
          * TERRORISM
@@ -350,24 +430,25 @@ EARTHQUAKE RATE    : ${earthquakeRate}
          */
 
         finalFireRate =
-          round2(
+          roundValue(
             netRateIIB +
             netCatRate +
             terrorismApplied
           );
       }
 
-      console.log(`
+console.log(`
 =========================================================
 FIRE RATE BREAKUP
 ---------------------------------------------------------
 NET IIB RATE      : ${netRateIIB}
-NET CAT RATE      : ${netCatRate}
+NET EQ RATE       : ${netEqRate}
+NET STFI RATE     : ${netStfiRate}
+NET NAT CAT RATE  : ${netCatRate}
 TERRORISM RATE    : ${terrorismApplied}
 FINAL FIRE RATE   : ${finalFireRate}
 =========================================================
-      `);
-
+`);
       /**
        * =========================================================
        * FIRE & ALLIED PERILS
@@ -376,15 +457,12 @@ FINAL FIRE RATE   : ${finalFireRate}
 
       let firePremium = 0;
 
-      if (fireAndAlliedPerils) {
-
-        firePremium =
-          calculatePremium({
-            sumInsured: totalSI,
-            rate: finalFireRate,
-            basis: 1000
-          });
-      }
+      firePremium =
+        calculatePremium({
+          sumInsured: totalSI,
+          rate: finalFireRate,
+          basis: 1000
+        });
 
       logSection({
         section: "FIRE & ALLIED PERILS",
@@ -404,14 +482,11 @@ FINAL FIRE RATE   : ${finalFireRate}
 
       const businessInterruptionSI =
         Number(
-          sections.section2
+          sections?.section2
             ?.businessInterruptionSI || 0
         );
 
-      if (
-        businessInterruption &&
-        businessInterruptionSI > 0
-      ) {
+      if (businessInterruptionSI > 0) {
 
         businessInterruptionPremium =
           calculatePremium({
@@ -442,14 +517,11 @@ FINAL FIRE RATE   : ${finalFireRate}
 
       const machineryBreakdownSI =
         Number(
-          sections.section3A
+          sections?.section3A
             ?.machineryBreakdownSI || 0
         );
 
-      if (
-        machineryBreakdown &&
-        machineryBreakdownSI > 0
-      ) {
+      if (machineryBreakdownSI > 0) {
 
         machineryBreakdownPremium =
           calculatePremium({
@@ -488,7 +560,7 @@ FINAL FIRE RATE   : ${finalFireRate}
 
       const mlopSI =
         Number(
-          sections.section3B
+          sections?.section3B
             ?.mlopSI || 0
         );
 
@@ -524,7 +596,7 @@ FINAL FIRE RATE   : ${finalFireRate}
        */
 
       const netPremium =
-        round2(
+        roundValue(
           firePremium +
           businessInterruptionPremium +
           machineryBreakdownPremium +
@@ -538,7 +610,7 @@ FINAL FIRE RATE   : ${finalFireRate}
        */
 
       const gst =
-        round2(
+        roundValue(
           netPremium * 0.18
         );
 
@@ -549,7 +621,7 @@ FINAL FIRE RATE   : ${finalFireRate}
        */
 
       const grossPremium =
-        round2(
+        roundValue(
           netPremium + gst
         );
 
@@ -563,6 +635,62 @@ GROSS PREMIUM : ${grossPremium}
 =========================================================
       `);
 
+
+      // #QS BUILD SAVE PAYLOAD
+const savePayload = {
+  quoteNo: `IAR-${Date.now()}`, // #QS auto quote number
+  customerName,
+  address: customerDetails.address,
+  pinCode,
+  riskCode,
+  occupancy,
+
+  terrorism,
+  mlop,
+
+  discounts,
+
+  sumInsured,
+  sections,
+
+  totalSI,
+
+  rates: {
+    iibRate,
+    earthquakeRate,
+    stfiRate,
+    netIibRate: netRateIIB,
+    netEqRate,
+    netStfiRate,
+    netNatCatRate: netCatRate,
+    terrorismRate,
+    finalFireRate
+  },
+
+  premiums: {
+    fireAndAlliedPerils: firePremium,
+    businessInterruption: businessInterruptionPremium,
+    machineryBreakdown: machineryBreakdownPremium,
+    mlop: mlopPremium
+  },
+
+  summary: {
+    netPremium,
+    gst,
+    grossPremium
+  },
+
+  addons : addons
+};
+
+
+
+// #QS DB SAVE CALL
+const savedQuote = await saveIarQuote(savePayload);
+
+
+
+
       /**
        * =========================================================
        * RESPONSE
@@ -570,6 +698,8 @@ GROSS PREMIUM : ${grossPremium}
        */
 
       return {
+              
+        quoteNo: savedQuote.quoteNo,
 
         customerName,
 
@@ -577,50 +707,68 @@ GROSS PREMIUM : ${grossPremium}
 
         occupancy,
 
-        totalSI,
+        totalSI:
+
+          roundValue(totalSI),
 
         rates: {
 
-          iibRate,
+  iibRate:
+    roundValue(iibRate),
 
-          earthquakeRate,
+  earthquakeRate:
+    roundValue(earthquakeRate),
 
-          stfiRate,
+  stfiRate:
+    roundValue(stfiRate),
 
-          terrorismRate,
+  netIibRate:
+    roundValue(netRateIIB),
 
-          finalFireRate
-        },
+  netEqRate:
+    roundValue(netEqRate),
 
+  netStfiRate:
+    roundValue(netStfiRate),
+
+  netNatCatRate:
+    roundValue(netCatRate),
+
+  terrorismRate:
+    roundValue(terrorismRate),
+
+  finalFireRate:
+    roundValue(finalFireRate)
+},
         premiums: {
 
           fireAndAlliedPerils:
-            round2(firePremium),
+            roundValue(firePremium),
 
           businessInterruption:
-            round2(
+            roundValue(
               businessInterruptionPremium
             ),
 
           machineryBreakdown:
-            round2(
+            roundValue(
               machineryBreakdownPremium
             ),
 
           mlop:
-            round2(mlopPremium)
+            roundValue(mlopPremium)
         },
 
         summary: {
 
           netPremium:
-            round2(netPremium),
+            roundValue(netPremium),
 
           gst:
-            round2(gst),
+            roundValue(gst),
 
           grossPremium:
-            round2(grossPremium)
+            roundValue(grossPremium)
         }
       };
 
@@ -640,3 +788,142 @@ IAR PREMIUM CALCULATION ERROR
       );
     }
   };
+
+
+  /**
+ * =========================================================
+ * #QS SAVE HELPER FUNCTION
+ * =========================================================
+ */
+
+const dbValue = (value) => {
+  if (
+    value === "" ||
+    value === null ||
+    value === undefined
+  ) {
+    return undefined;
+  }
+
+  return value;
+};
+
+const saveIarQuote = async (payload) => {
+  try {
+    return await prisma.iarQuote.create({
+      data: {
+        // BASIC INFO
+        quoteNo: payload.quoteNo,
+        quoteType: 'iar',
+        customerName: dbValue(payload.customerName),
+        address: dbValue(payload.address),
+        pinCode: dbValue(payload.pinCode),
+        riskCode: dbValue(payload.riskCode),
+        occupancy: dbValue(payload.occupancy),
+
+        // OPTIONAL COVERS
+        terrorism: payload.terrorism,
+        mlop: payload.mlop,
+
+        // DISCOUNTS
+        iibDiscountPct: dbValue(
+          payload.discounts?.iibDiscountPercent
+        ),
+        eqDiscountPct: dbValue(
+          payload.discounts?.eqDiscountPercent
+        ),
+        stfiDiscountPct: dbValue(
+          payload.discounts?.stfiDiscountPercent
+        ),
+
+        // SUM INSURED
+        buildingSi: dbValue(
+          payload.sumInsured?.buildingSI
+        ),
+        plantMachinerySi: dbValue(
+          payload.sumInsured?.plantAndMachinerySI
+        ),
+        stockSi: dbValue(
+          payload.sumInsured?.stockSI
+        ),
+        fffSi: dbValue(
+          payload.sumInsured?.furnitureFixturesFittingsSI
+        ),
+        otherContentsSi: dbValue(
+          payload.sumInsured?.otherContentsSI
+        ),
+        totalSi: dbValue(
+          payload.totalSI
+        ),
+
+        // SECTION SI
+        earthquakeSi: dbValue(
+          payload.sections?.section1?.earthquakeSI
+        ),
+        stfiSi: dbValue(
+          payload.sections?.section1?.stfiSI
+        ),
+        terrorismSi: dbValue(
+          payload.sections?.section1?.terrorismSI
+        ),
+
+        businessInterruptionSi: dbValue(
+          payload.sections?.section2?.businessInterruptionSI
+        ),
+
+        machineryBreakdownSi: dbValue(
+          payload.sections?.section3A?.machineryBreakdownSI
+        ),
+
+        mlopSi: dbValue(
+          payload.sections?.section3B?.mlopSI
+        ),
+
+        // RATES
+        iibRate: dbValue(payload.rates?.iibRate),
+        earthquakeRate: dbValue(payload.rates?.earthquakeRate),
+        stfiRate: dbValue(payload.rates?.stfiRate),
+        netIibRate: dbValue(payload.rates?.netIibRate),
+        netEqRate: dbValue(payload.rates?.netEqRate),
+        netStfiRate: dbValue(payload.rates?.netStfiRate),
+        netNatCatRate: dbValue(payload.rates?.netNatCatRate),
+        terrorismRate: dbValue(payload.rates?.terrorismRate),
+        finalFireRate: dbValue(payload.rates?.finalFireRate),
+
+        // PREMIUMS
+        firePremium: dbValue(
+          payload.premiums?.fireAndAlliedPerils
+        ),
+        biPremium: dbValue(
+          payload.premiums?.businessInterruption
+        ),
+        mbPremium: dbValue(
+          payload.premiums?.machineryBreakdown
+        ),
+        mlopPremium: dbValue(
+          payload.premiums?.mlop
+        ),
+
+        netPremium: dbValue(
+          payload.summary?.netPremium
+        ),
+        gst: dbValue(
+          payload.summary?.gst
+        ),
+        grossPremium: dbValue(
+          payload.summary?.grossPremium
+        ),
+
+        // ADDONS
+        addons:
+          payload.addons?.length > 0
+            ? payload.addons
+            : null
+            
+      }
+    });
+  } catch (err) {
+    console.error("#QS SAVE ERROR", err);
+    throw new Error("Failed to save IAR quote");
+  }
+};

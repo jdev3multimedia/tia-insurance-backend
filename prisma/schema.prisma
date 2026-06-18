@@ -25,16 +25,16 @@ model AppConfig {
 // 👤 USER
 //
 model User {
-  id           Int        @id @default(autoincrement())
-  email        String     @unique
-  password     String
-  name         String?
-  role         UserRole   @default(CUSTOMER)
-  isActive     Boolean    @default(true)
-  isVerified   Boolean    @default(false)
-  mobile       String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  password   String
+  name       String?
+  role       UserRole @default(CUSTOMER)
+  isActive   Boolean  @default(true)
+  isVerified Boolean  @default(false)
+  mobile     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   otp          Otp[]
   refreshToken RefreshToken[]
@@ -52,7 +52,7 @@ model RefreshToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("refreshtoken")
@@ -70,7 +70,7 @@ model Otp {
   isUsed    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("otp")
@@ -80,12 +80,12 @@ model Otp {
 // ⚙️ ROLE CONFIG
 //
 model RoleConfig {
-  id                 Int                         @id @default(autoincrement())
-  role               RoleConfigRole              @unique
-  otpEnabled         Boolean                     @default(true)
+  id                 Int                          @id @default(autoincrement())
+  role               RoleConfigRole               @unique
+  otpEnabled         Boolean                      @default(true)
   verificationMethod RoleConfigVerificationMethod @default(EMAIL)
-  createdAt          DateTime                    @default(now())
-  updatedAt          DateTime                    @updatedAt
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
 
   @@map("roleconfig")
 }
@@ -111,17 +111,17 @@ model OccupancyRateMaster {
 // 📍 LOCATION RATE MASTER
 //
 model LocationRateMaster {
-  id                     Int      @id @default(autoincrement())
-  pincode                String   @db.VarChar(10)
-  district_name          String   @db.VarChar(100)
-  mapped_district_name   String   @db.VarChar(100)
-  zone_code              String   @db.VarChar(20)
-  dwelling_rate          Decimal  @db.Decimal(6, 3)
-  non_industrial_rate    Decimal  @db.Decimal(6, 3)
-  industrial_rate        Decimal  @db.Decimal(6, 3)
-  state_name             String   @db.VarChar(100)
-  created_at             DateTime @default(now()) @db.Timestamp(0)
-  updated_at             DateTime @updatedAt @db.Timestamp(0)
+  id                   Int      @id @default(autoincrement())
+  pincode              String   @db.VarChar(10)
+  district_name        String   @db.VarChar(100)
+  mapped_district_name String   @db.VarChar(100)
+  zone_code            String   @db.VarChar(20)
+  dwelling_rate        Decimal  @db.Decimal(6, 3)
+  non_industrial_rate  Decimal  @db.Decimal(6, 3)
+  industrial_rate      Decimal  @db.Decimal(6, 3)
+  state_name           String   @db.VarChar(100)
+  created_at           DateTime @default(now()) @db.Timestamp(0)
+  updated_at           DateTime @updatedAt @db.Timestamp(0)
 
   @@map("location_rate_master")
 }
@@ -156,14 +156,13 @@ enum UserRole {
   SUPER_ADMIN
 }
 
-
 model Plan {
-  id            Int      @id @default(autoincrement())
+  id            Int     @id @default(autoincrement())
   name          String
   price         Float
   duration_days Int
   features      Json?
-  isActive      Boolean  @default(true)
+  isActive      Boolean @default(true)
 
   subscriptions Subscription[]
 
@@ -171,18 +170,18 @@ model Plan {
 }
 
 model Subscription {
-  id        Int @id @default(autoincrement())
-  userId    Int
-  planId    Int
+  id     Int @id @default(autoincrement())
+  userId Int
+  planId Int
 
   status    String
   startDate DateTime
   endDate   DateTime
-  autoRenew Boolean @default(true)
+  autoRenew Boolean  @default(true)
 
-  plan      Plan @relation(fields: [planId], references: [id])
+  plan Plan @relation(fields: [planId], references: [id])
 
-  payments  Payment[]
+  payments Payment[]
 
   @@map("subscriptions")
 }
@@ -192,12 +191,101 @@ model Payment {
   userId         Int
   subscriptionId Int
 
-  amount         Float
-  status         String
-  gateway        String?
-  transactionId  String?
+  amount        Float
+  status        String
+  gateway       String?
+  transactionId String?
 
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
 
   @@map("payments")
+}
+
+model PolicyAddons {
+  id             BigInt   @id @default(autoincrement())
+  srNo           Int      @map("sr_no")
+  addonName      String   @map("addon_name")
+  remarksSi      String?  @map("remarks_si")
+  insurerRemarks String?  @map("insurer_remarks")
+  wording        String?
+  isActive       Boolean? @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("policy_addons")
+}
+
+enum QuoteType {
+  fire
+  business
+  iar
+}
+
+model IarQuote {
+  id BigInt @id @default(autoincrement()) @db.BigInt
+
+  quoteNo      String?   @unique @map("quote_no") @db.VarChar(50)
+  quoteType    QuoteType @map("quote_type")
+  customerName String?   @map("customer_name") @db.VarChar(255)
+  address      String?   @db.Text
+  pinCode      String?   @map("pin_code") @db.VarChar(10)
+  riskCode     String?   @map("risk_code") @db.VarChar(20)
+  occupancy    String?   @db.VarChar(100)
+
+  terrorism Boolean @default(false)
+  mlop      Boolean @default(false)
+
+  iibDiscountPct  Decimal @default(0) @map("iib_discount_pct") @db.Decimal(5, 2)
+  eqDiscountPct   Decimal @default(0) @map("eq_discount_pct") @db.Decimal(5, 2)
+  stfiDiscountPct Decimal @default(0) @map("stfi_discount_pct") @db.Decimal(5, 2)
+
+  buildingSi       Decimal @default(0) @map("building_si") @db.Decimal(18, 2)
+  plantMachinerySi Decimal @default(0) @map("plant_machinery_si") @db.Decimal(18, 2)
+  stockSi          Decimal @default(0) @map("stock_si") @db.Decimal(18, 2)
+  fffSi            Decimal @default(0) @map("fff_si") @db.Decimal(18, 2)
+  otherContentsSi  Decimal @default(0) @map("other_contents_si") @db.Decimal(18, 2)
+
+  totalSi Decimal @default(0) @map("total_si") @db.Decimal(18, 2)
+
+  earthquakeSi Decimal @default(0) @map("earthquake_si") @db.Decimal(18, 2)
+  stfiSi       Decimal @default(0) @map("stfi_si") @db.Decimal(18, 2)
+  terrorismSi  Decimal @default(0) @map("terrorism_si") @db.Decimal(18, 2)
+
+  businessInterruptionSi Decimal @default(0) @map("business_interruption_si") @db.Decimal(18, 2)
+  machineryBreakdownSi   Decimal @default(0) @map("machinery_breakdown_si") @db.Decimal(18, 2)
+  mlopSi                 Decimal @default(0) @map("mlop_si") @db.Decimal(18, 2)
+
+  iibRate        Decimal @default(0) @map("iib_rate") @db.Decimal(10, 4)
+  earthquakeRate Decimal @default(0) @map("earthquake_rate") @db.Decimal(10, 4)
+  stfiRate       Decimal @default(0) @map("stfi_rate") @db.Decimal(10, 4)
+
+  netIibRate    Decimal @default(0) @map("net_iib_rate") @db.Decimal(10, 4)
+  netEqRate     Decimal @default(0) @map("net_eq_rate") @db.Decimal(10, 4)
+  netStfiRate   Decimal @default(0) @map("net_stfi_rate") @db.Decimal(10, 4)
+  netNatCatRate Decimal @default(0) @map("net_natcat_rate") @db.Decimal(10, 4)
+
+  terrorismRate Decimal @default(0) @map("terrorism_rate") @db.Decimal(10, 4)
+  finalFireRate Decimal @default(0) @map("final_fire_rate") @db.Decimal(10, 4)
+
+  firePremium Decimal @default(0) @map("fire_premium") @db.Decimal(18, 2)
+  biPremium   Decimal @default(0) @map("bi_premium") @db.Decimal(18, 2)
+  mbPremium   Decimal @default(0) @map("mb_premium") @db.Decimal(18, 2)
+  mlopPremium Decimal @default(0) @map("mlop_premium") @db.Decimal(18, 2)
+
+  netPremium   Decimal @default(0) @map("net_premium") @db.Decimal(18, 2)
+  gst          Decimal @default(0) @db.Decimal(18, 2)
+  grossPremium Decimal @default(0) @map("gross_premium") @db.Decimal(18, 2)
+
+  addons Json? @map("addons")
+
+  isPdfExported   Boolean @default(false) @map("is_pdf_exported")
+  isExcelExported Boolean @default(false) @map("is_excel_exported")
+
+  pdfExportedAt   DateTime? @map("pdf_exported_at")
+  excelExportedAt DateTime? @map("excel_exported_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("iar_quotes")
 }

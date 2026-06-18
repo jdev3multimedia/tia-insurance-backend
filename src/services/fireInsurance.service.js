@@ -1,5 +1,24 @@
 import prisma from "../config/prisma.js";
 
+const DECIMAL_PLACES =
+  Number(
+    process.env.DECIMAL_PLACES || 2
+  );
+
+
+  /**
+ * ==================================================
+ * ROUND FUNCTION
+ * ==================================================
+ */
+
+const roundValue = (n = 0) =>
+  Number(
+    Number(n).toFixed(
+      DECIMAL_PLACES
+    )
+  );
+
 export const calculateFireInsurancePremium = async (
   data
 ) => {
@@ -62,7 +81,8 @@ export const calculateFireInsurancePremium = async (
 
     const {
       iibDiscountPercent = 0,
-      natcatDiscountPercent = 0
+      eqDiscountPercent = 0,
+      stfiDiscountPercent = 0
     } = discounts;
 
     const {
@@ -353,40 +373,51 @@ export const calculateFireInsurancePremium = async (
       netIIBRate
     );
 
-    const natCatBaseRate = round3(
-      earthquakeRate + stfiRate
-    );
+console.log(
+  "EQ Discount Percentage:",
+  eqDiscountPercent
+);
 
-    console.log(
-      "Natural Catastrophe Base Rate:",
-      natCatBaseRate
-    );
+const netEqRate = roundValue(
+  earthquakeRate -
+    (
+      earthquakeRate *
+      eqDiscountPercent
+    ) / 100
+);
 
-    console.log(
-      "Nat Cat Discount Percentage:",
-      natcatDiscountPercent
-    );
+console.log(
+  "Net EQ Rate:",
+  netEqRate
+);
 
-    const natCatDiscountAmount = round3(
-      (natCatBaseRate *
-        natcatDiscountPercent) /
-        100
-    );
+console.log(
+  "STFI Discount Percentage:",
+  stfiDiscountPercent
+);
 
-    console.log(
-      "Nat Cat Discount Amount:",
-      natCatDiscountAmount
-    );
+const netStfiRate = roundValue(
+  stfiRate -
+    (
+      stfiRate *
+      stfiDiscountPercent
+    ) / 100
+);
 
-    const netCatRate = round3(
-      natCatBaseRate - natCatDiscountAmount
-    );
+console.log(
+  "Net STFI Rate:",
+  netStfiRate
+);
 
-    console.log(
-      "Net Catastrophe Rate:",
-      netCatRate
-    );
+const netCatRate = roundValue(
+  netEqRate +
+  netStfiRate
+);
 
+console.log(
+  "Net Catastrophe Rate:",
+  netCatRate
+);
     const finalFireRate = round3(
       netIIBRate + netCatRate
     );
@@ -473,25 +504,28 @@ export const calculateFireInsurancePremium = async (
       "--------------------------------------------------"
     );
 
-    let burglaryPremium = 0;
+let burglaryPremium = 0;
 
-    if (burglary) {
-      burglaryPremium = round2(
-        (burglarySectionSumInsured * bhbRate) /
-          1000
-      );
-    }
+let burglaryAppliedRate =
+  burglarySectionSumInsured < 50000000
+    ? bhbRate
+    : 0.01;
 
-    console.log(
-      "Burglary Cover Selected:",
-      burglary
-    );
+burglaryPremium = roundValue(
+  (
+    burglarySectionSumInsured *
+    burglaryAppliedRate
+  ) / 1000
+);
+console.log(
+  "Burglary Applied Rate:",
+  burglaryAppliedRate
+);
 
-    console.log(
-      "Burglary Premium:",
-      burglaryPremium
-    );
-
+console.log(
+  "Burglary Premium:",
+  burglaryPremium
+);
     // ==================================================
     // FINAL PREMIUM CALCULATION
     // ==================================================
@@ -557,8 +591,9 @@ export const calculateFireInsurancePremium = async (
 
         stfiRate,
 
-        natCatBaseRate,
-        natCatDiscountAmount,
+        netEqRate,
+        netStfiRate,
+
         netCatRate,
 
         finalFireRate,

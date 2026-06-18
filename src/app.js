@@ -11,9 +11,20 @@ import businessInsuranceRoutes from "./routes/businessInsurance.routes.js";
 import iarInsuranceRoutes from "./routes/iarInsurance.routes.js";
 
 import planRoutes from "./routes/plan.routes.js";
+import policyAddonRoutes from "./routes/policyAddon.routes.js";
 import subscriptionRoutes from "./routes/subscription.routes.js";
 
+import quotationRoutes from "./routes/quotation.routes.js";
+import quotationExportRoutes from "./routes/quotation.export.routes.js";
+
+
+
+
 const app = express();
+
+BigInt.prototype.toJSON = function () {
+  return this.toString();
+};
 
 //CORS (ADD THIS - does NOT affect existing logic)
 app.use(
@@ -38,14 +49,17 @@ app.use("/api/business-insurance", businessInsuranceRoutes);
 app.use("/api/iar-insurance", iarInsuranceRoutes);
 
 app.use("/api/plans", planRoutes);
+app.use("/api/policy-addons", policyAddonRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 
+app.use("/api/quotations", quotationRoutes);
+app.use("/api/quotations/export", quotationExportRoutes);
 
 // Health check route
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    message: "API is running",
+    message: "Tia Insurance API is running",
   });
 });
 
