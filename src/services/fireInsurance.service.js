@@ -32,6 +32,10 @@ export const calculateFireInsurancePremium = async (
   const round2 = (n = 0) =>
     Math.round(Number(n) * 100) / 100;
 
+  // const round2 = (n = 0) =>
+  //   Math.round(Number(n) * 100) / 100;
+
+
   const toNum = (value) =>
     parseFloat(String(value || 0).replace(/,/g, "")) ||
     0;
@@ -61,7 +65,9 @@ export const calculateFireInsurancePremium = async (
     console.log("INPUT DATA RECEIVED");
 
     console.log("Customer Details:", customerDetails);
+    console.log("Customer Details:", customerDetails);
 
+    console.log("Risk Covers:", riskCovers);
     console.log("Risk Covers:", riskCovers);
 
     console.log("Discounts:", discounts);
@@ -285,6 +291,7 @@ export const calculateFireInsurancePremium = async (
       occupancyData.bhb_rate || 0.05
     );
 
+
     console.log("IIB Rate:", iibRate);
 
     console.log("STFI Rate:", stfiRate);
@@ -490,42 +497,38 @@ console.log(
       fireSectionPremium
     );
 
-    // ==================================================
-    // BURGLARY PREMIUM CALCULATION
-    // ==================================================
+// ==================================================
+// BURGLARY PREMIUM CALCULATION
+// ==================================================
 
-    console.log(
-      "--------------------------------------------------"
-    );
-    console.log(
-      "CALCULATING BURGLARY PREMIUM"
-    );
-    console.log(
-      "--------------------------------------------------"
-    );
+console.log("--------------------------------------------------");
+console.log("CALCULATING BURGLARY PREMIUM");
+console.log("--------------------------------------------------");
 
 let burglaryPremium = 0;
 
-let burglaryAppliedRate =
-  burglarySectionSumInsured < 50000000
-    ? bhbRate
-    : 0.01;
+if (burglary) {
+  let burglaryAppliedRate =
+    burglarySectionSumInsured < 50000000
+      ? bhbRate
+      : 0.01;
 
-burglaryPremium = roundValue(
-  (
-    burglarySectionSumInsured *
+  burglaryPremium = roundValue(
+    (burglarySectionSumInsured * burglaryAppliedRate) / 1000
+  );
+
+  console.log(
+    "Burglary Applied Rate:",
     burglaryAppliedRate
-  ) / 1000
-);
-console.log(
-  "Burglary Applied Rate:",
-  burglaryAppliedRate
-);
-
-console.log(
-  "Burglary Premium:",
-  burglaryPremium
-);
+  );
+  console.log(
+    "Burglary Premium:",
+    burglaryPremium
+  );
+} else {
+  console.log("Burglary cover not selected.");
+  console.log("Burglary Premium:", burglaryPremium);
+}
     // ==================================================
     // FINAL PREMIUM CALCULATION
     // ==================================================
@@ -598,7 +601,11 @@ console.log(
 
         finalFireRate,
 
-        terrorismRate,
+        // terrorismRate,
+
+        ...(terrorism && {
+          terrorismRate: roundValue(terrorismRate),
+        }),
 
         totalFireRate,
 

@@ -297,6 +297,7 @@ TERRORISM RATE  : ${terrorismRate}
           ?.trim()
           ?.toLowerCase();
 
+
       if (occupancyCategory === "dwelling") {
 
         earthquakeRate =
@@ -373,21 +374,21 @@ EARTHQUAKE RATE    : ${earthquakeRate}
          */
 
         /**
- * =========================================================
- * EQ RATE AFTER DISCOUNT
- * =========================================================
- */
+         * =========================================================
+         * EQ RATE AFTER DISCOUNT
+         * =========================================================
+         */
 
-netEqRate =
-  roundValue(
-    earthquakeRate -
-    (
-      earthquakeRate *
-      Number(eqDiscountPercent) /
-      100
-    )
-  );
-
+        netEqRate =
+          roundValue(
+            earthquakeRate -
+            (
+              earthquakeRate *
+              Number(eqDiscountPercent) /
+              100
+            )
+          );
+          
 /**
  * =========================================================
  * STFI RATE AFTER DISCOUNT
@@ -684,7 +685,6 @@ const savePayload = {
 };
 
 
-
 // #QS DB SAVE CALL
 const savedQuote = await saveIarQuote(savePayload);
 
@@ -733,10 +733,9 @@ const savedQuote = await saveIarQuote(savePayload);
 
   netNatCatRate:
     roundValue(netCatRate),
-
-  terrorismRate:
-    roundValue(terrorismRate),
-
+  ...(terrorism && {
+    terrorismRate: roundValue(terrorismRate),
+  }),
   finalFireRate:
     roundValue(finalFireRate)
 },
@@ -810,6 +809,7 @@ const dbValue = (value) => {
 
 const saveIarQuote = async (payload) => {
   try {
+
     return await prisma.iarQuote.create({
       data: {
         // BASIC INFO
@@ -890,6 +890,7 @@ const saveIarQuote = async (payload) => {
         terrorismRate: dbValue(payload.rates?.terrorismRate),
         finalFireRate: dbValue(payload.rates?.finalFireRate),
 
+
         // PREMIUMS
         firePremium: dbValue(
           payload.premiums?.fireAndAlliedPerils
@@ -922,8 +923,11 @@ const saveIarQuote = async (payload) => {
             
       }
     });
-  } catch (err) {
+    } catch (err) {
     console.error("#QS SAVE ERROR", err);
-    throw new Error("Failed to save IAR quote");
+
+    throw new Error(
+      `Failed to save IAR quote: ${err?.message}`
+    );
   }
 };

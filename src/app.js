@@ -29,7 +29,10 @@ BigInt.prototype.toJSON = function () {
 //CORS (ADD THIS - does NOT affect existing logic)
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: [
+      "http://localhost:3000",
+      "https://tiaadmin.ocsolutions.co.in",
+    ],
     credentials: true,
   })
 );
